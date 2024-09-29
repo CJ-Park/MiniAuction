@@ -19,6 +19,6 @@ public interface AccountService {
     void deposit(Long accountId, Long amount);
 
     // 출금
-    boolean withdraw(Long accountId, Long amount);
+    void withdraw(Long accountId, Long amount);
 
 }

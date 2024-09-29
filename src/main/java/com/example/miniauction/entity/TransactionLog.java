@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-public class TransactionLog {
+public class TransactionLog extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -21,7 +21,7 @@ public class TransactionLog {
     private Long amount;
 
     @Column(nullable = false)
-    private Long balance;
+    private Long leftBalance;
 
     @ManyToOne
     @JoinColumn(name = "account_id", nullable = false)

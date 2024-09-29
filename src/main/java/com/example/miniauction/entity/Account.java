@@ -33,4 +33,12 @@ public class Account {
     public List<TransactionLog> getTransactionLogs() {
         return Collections.unmodifiableList(transactionLogs);
     }
+
+    public void deposit(Long amount) {
+        balance += amount;
+    }
+
+    public void withdraw(Long amount) {
+        balance -= amount;
+    }
 }
