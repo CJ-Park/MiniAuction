@@ -4,6 +4,7 @@ import com.example.miniauction.dto.account.AccountDto;
 import com.example.miniauction.dto.transactionLog.TransactionLogDto;
 import com.example.miniauction.entity.Account;
 import com.example.miniauction.entity.TransactionLog;
+import com.example.miniauction.entity.User;
 import com.example.miniauction.repository.account.AccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,8 +21,8 @@ import static com.example.miniauction.enums.TransactionType.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AccountServiceImplTest {
@@ -30,6 +31,9 @@ class AccountServiceImplTest {
 
     @Mock
     private ExecutorService es;
+
+    @Mock
+    private User mockUser;
 
     @InjectMocks
     private AccountServiceImpl accountService;
@@ -131,6 +135,29 @@ class AccountServiceImplTest {
         //then
         assertThat(accountDto).isOfAnyClassIn(AccountDto.class);
         assertThat(accountDto.getBalance()).isEqualTo(700L);
+    }
+
+    @Test
+    public void 계좌를_생성한다() throws Exception {
+        // given
+        String accountNumber = "1234-5678";
+        Account account = Account.builder()
+                .accountNumber(accountNumber)
+                .balance(0L)
+                .build();
+
+        // 계좌 번호 중복 체크와 저장 과정 모킹
+        when(accountRepository.save(any(Account.class))).thenReturn(account);
+        when(accountRepository.existsAccountByAccountNumber(anyString())).thenReturn(false);
+
+        // when
+        accountService.generateAccount(mockUser); // 계좌 생성
+
+        // then
+        // 계좌가 저장되는지 확인
+        verify(accountRepository, times(1)).save(any(Account.class));
+        // 계좌가 사용자에게 연결되는지 확인
+        verify(mockUser, times(1)).connectAccount(account);
     }
 
     @Test
