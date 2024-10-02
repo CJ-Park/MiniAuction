@@ -1,32 +1,25 @@
 package com.example.miniauction.service.impl;
 
+import com.example.miniauction.dto.account.AccountDto;
 import com.example.miniauction.dto.transactionLog.TransactionLogDto;
 import com.example.miniauction.entity.Account;
 import com.example.miniauction.entity.TransactionLog;
-import com.example.miniauction.enums.TransactionType;
 import com.example.miniauction.repository.account.AccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.util.concurrent.FutureUtils;
-import org.springframework.util.concurrent.ListenableFuture;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.*;
 
 import static com.example.miniauction.enums.TransactionType.*;
-import static com.example.miniauction.util.ThreadUtils.sleep;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -86,6 +79,58 @@ class AccountServiceImplTest {
         
         //then
         assertTrue(t1.isInterrupted());
+    }
+
+    @Test
+    public void 계좌_잔고를_조회한다() throws Exception {
+        //given
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
+
+        //when
+        AccountDto accountDto = accountService.getAccountBalance(1L);
+
+        //then
+        assertThat(accountDto).isOfAnyClassIn(AccountDto.class);
+        assertThat(accountDto.getBalance()).isEqualTo(1000L);
+    }
+
+    @Test
+    public void 출금_후_계좌_잔고를_조회한다() throws Exception {
+        //given
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
+        when(es.submit(any(Runnable.class))).thenAnswer(invocation -> {
+            Runnable task = invocation.getArgument(0);
+            task.run(); // 직접 실행
+            return null; // 반환값이 필요 없으므로 null
+        });
+        CountDownLatch latch = new CountDownLatch(3);
+
+        //when
+        for (int i = 0; i < 4; i++) {
+            final long amount = 100L;
+            if (i == 2) {
+                es.submit(() -> {
+                    AccountDto accountDto = accountService.getAccountBalance(1L);
+                    assertThat(accountDto.getBalance()).isEqualTo(800L);
+                });
+            } else {
+                es.submit(() -> {
+                    accountService.withdraw(1L, amount);
+                    latch.countDown();
+                });
+            }
+        }
+
+        // lock 으로 인해 출금 완료 후 잔고 조회됨
+        AccountDto accountDto = accountService.getAccountBalance(1L);
+        assertThat(accountDto.getBalance()).isEqualTo(700L);
+
+        latch.await();
+        es.close();
+
+        //then
+        assertThat(accountDto).isOfAnyClassIn(AccountDto.class);
+        assertThat(accountDto.getBalance()).isEqualTo(700L);
     }
 
     @Test
