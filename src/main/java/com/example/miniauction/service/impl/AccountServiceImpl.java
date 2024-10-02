@@ -3,6 +3,7 @@ package com.example.miniauction.service.impl;
 import com.example.miniauction.dto.account.AccountDto;
 import com.example.miniauction.dto.transactionLog.TransactionLogDto;
 import com.example.miniauction.entity.Account;
+import com.example.miniauction.entity.User;
 import com.example.miniauction.repository.account.AccountRepository;
 import com.example.miniauction.service.AccountService;
 import lombok.RequiredArgsConstructor;
@@ -26,25 +27,34 @@ public class AccountServiceImpl implements AccountService {
     private final AccountRepository accountRepository;
     private final Lock lock = new ReentrantLock();
     private final ExecutorService es;
+    private final Random random = new Random();
 
-    // 사용자 많다고 가정하면 매우 비효율적인 방법 => 추후 사용자 많아지면 데이터베이스 시퀀스 필요
+    // 사용자가 많아지면 매우 비효율적인 방법 => 추후 사용자 많아지면 데이터베이스 시퀀스 필요
+    private String generateAccountNumber() {
+        return String.format("%04d-%04d",
+                random.nextInt(10000), random.nextInt(10000));
+    }
+
     @Override
-    public String generateAccountNumber() {
-        Random random = new Random();
-        String accountNumber;
-
+    public void generateAccount(User user) {
         lock.lock();
 
         try {
+            String accountNumber;
             do {
-                accountNumber = String.format("%04d-%04d",
-                        random.nextInt(10000), random.nextInt(10000));
+                accountNumber = generateAccountNumber();
             } while (accountRepository.existsAccountByAccountNumber(accountNumber));
+
+            Account account = Account.builder()
+                    .accountNumber(accountNumber)
+                    .balance(0L)
+                    .build();
+
+            Account saveAccount = accountRepository.save(account);
+            user.connectAccount(saveAccount);
         } finally {
             lock.unlock();
         }
-
-        return accountNumber;
     }
 
     @Override
@@ -86,7 +96,7 @@ public class AccountServiceImpl implements AccountService {
                 Account account = accountRepository.findById(accountId)
                         .orElseThrow(() -> new RuntimeException("Account not found"));
 
-                sleep(500); // 입금 0.5초 걸린다고 가정
+                sleep(1000); // 입금 1초 걸린다고 가정
                 account.deposit(amount);
             } finally {
                 lock.unlock();
@@ -107,7 +117,7 @@ public class AccountServiceImpl implements AccountService {
                 if (account.getBalance() < amount) {
                     throw new RuntimeException("잔고가 부족합니다.");
                 } else {
-                    sleep(500); // 출금 0.5초 걸린다고 가정
+                    sleep(1000); // 출금 1초 걸린다고 가정
                     account.withdraw(amount);
                 }
             } finally {
