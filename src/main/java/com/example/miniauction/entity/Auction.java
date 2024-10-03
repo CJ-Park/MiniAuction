@@ -1,5 +1,6 @@
 package com.example.miniauction.entity;
 
+import com.example.miniauction.dto.auction.AuctionCreateDto;
 import com.example.miniauction.enums.AuctionStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -9,12 +10,14 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+import static com.example.miniauction.enums.AuctionStatus.PROGRESS;
+
 @Entity
 @Table(name = "auctions")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-public class Auction {
+public class Auction extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -40,4 +43,19 @@ public class Auction {
 
     @Column(nullable = false)
     private LocalDateTime endDate;
+
+    private Auction(String title, String description, Long startPrice, LocalDateTime endDate,
+                    User user) {
+        this.title = title;
+        this.description = description;
+        this.startPrice = startPrice;
+        this.bidAmount = 0L;
+        this.seller = user;
+        this.status = PROGRESS;
+        this.endDate = endDate;
+    }
+
+    public static Auction createAuction(AuctionCreateDto dto, LocalDateTime endDate, User user) {
+        return new Auction(dto.getTitle(), dto.getDescription(), dto.getStartPrice(), endDate, user);
+    }
 }

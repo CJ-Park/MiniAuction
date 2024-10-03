@@ -1,5 +1,6 @@
 package com.example.miniauction.service;
 
+import com.example.miniauction.dto.auction.AuctionCreateDto;
 import com.example.miniauction.dto.auction.AuctionDetailDto;
 import com.example.miniauction.dto.auction.AuctionListDto;
 
@@ -13,8 +14,8 @@ public interface AuctionService {
     AuctionDetailDto getAuctionDetail(Long id);
 
     // 경매 물품 등록
-    void registerAuction(String title, String description, Long startPrice);
+    void registerAuction(AuctionCreateDto auctionCreateDto);
 
     // 경매 물품 삭제
-    boolean removeAuction(Long id);
+    void removeAuction(Long id);
 }
