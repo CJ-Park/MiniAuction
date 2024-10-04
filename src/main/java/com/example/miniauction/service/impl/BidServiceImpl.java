@@ -50,7 +50,7 @@ public class BidServiceImpl implements BidService {
                     throw new RuntimeException("Lower bid than the highest bid");
                 }
 
-                auction.updateBid(bidAmount);
+                auction.updateBidInfo(user, bidAmount);
                 Bid bid = Bid.createBid(bidAmount, user, auction);
                 bidRepository.save(bid);
             } finally {

@@ -165,7 +165,7 @@ class AuctionServiceImplTest {
     public void 이미_입찰된_경매면_삭제_시_예외가_발생() throws Exception {
         //given
         Auction auction = createAuction("delete", "description", 100L, 1);
-        auction.updateBid(100L);
+        auction.updateBidInfo(mockUser, 100L);
         when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
         when(userRepository.findById(1L)).thenReturn(Optional.of(mockUser));
 

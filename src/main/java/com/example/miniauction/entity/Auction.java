@@ -48,7 +48,8 @@ public class Auction extends BaseTimeEntity {
     @Column(nullable = false)
     private LocalDateTime endDate;
 
-    public void updateBid(Long bidAmount) {
+    public void updateBidInfo(User user, Long bidAmount) {
+        this.highestBidder = user;
         this.bidAmount = bidAmount;
     }
 
