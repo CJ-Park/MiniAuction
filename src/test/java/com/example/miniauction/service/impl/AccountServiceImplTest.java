@@ -119,7 +119,7 @@ class AccountServiceImplTest {
                 });
             } else {
                 es.submit(() -> {
-                    accountService.withdraw(1L, amount);
+                    accountService.withdraw(1L, amount, WITHDRAWAL);
                     latch.countDown();
                 });
             }
@@ -172,7 +172,7 @@ class AccountServiceImplTest {
 
         //when
         es.submit(() -> {
-            accountService.deposit(1L, 500L);
+            accountService.deposit(1L, 500L, DEPOSIT);
         });
 
         //then
@@ -195,7 +195,7 @@ class AccountServiceImplTest {
             final long amount = 500L;
 
             es.submit(() -> {
-                accountService.deposit(1L, amount);
+                accountService.deposit(1L, amount, DEPOSIT);
                 latch.countDown();
             });
         }
@@ -222,7 +222,7 @@ class AccountServiceImplTest {
         for (int i = 0; i < 5; i++) {
             final long amount = 100L;
             es.submit(() -> {
-                accountService.withdraw(1L, amount);
+                accountService.withdraw(1L, amount, WITHDRAWAL);
                 latch.countDown();
             });
         }
@@ -245,6 +245,6 @@ class AccountServiceImplTest {
 
         // when
         // then
-        assertThrows(RuntimeException.class, () -> accountService.withdraw(1L, 5000L));
+        assertThrows(RuntimeException.class, () -> accountService.withdraw(1L, 5000L, WITHDRAWAL));
     }
 }

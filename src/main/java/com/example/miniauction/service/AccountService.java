@@ -2,8 +2,8 @@ package com.example.miniauction.service;
 
 import com.example.miniauction.dto.account.AccountDto;
 import com.example.miniauction.dto.transactionLog.TransactionLogDto;
-import com.example.miniauction.entity.Account;
 import com.example.miniauction.entity.User;
+import com.example.miniauction.enums.TransactionType;
 
 import java.util.List;
 
@@ -18,9 +18,9 @@ public interface AccountService {
     List<TransactionLogDto> getTransactionLogs(Long accountId);
 
     // 입금
-    void deposit(Long accountId, Long amount);
+    void deposit(Long accountId, Long amount, TransactionType transactionType);
 
     // 출금
-    void withdraw(Long accountId, Long amount);
+    void withdraw(Long accountId, Long amount, TransactionType transactionType);
 
 }

@@ -4,8 +4,10 @@ import com.example.miniauction.dto.account.AccountDto;
 import com.example.miniauction.dto.transactionLog.TransactionLogDto;
 import com.example.miniauction.entity.Account;
 import com.example.miniauction.entity.User;
+import com.example.miniauction.enums.TransactionType;
 import com.example.miniauction.repository.account.AccountRepository;
 import com.example.miniauction.service.AccountService;
+import com.example.miniauction.service.TransactionLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,7 @@ import static com.example.miniauction.util.ThreadUtils.sleep;
 @Transactional(readOnly = true)
 public class AccountServiceImpl implements AccountService {
     private final AccountRepository accountRepository;
+    private final TransactionLogService logService;
     private final Lock lock = new ReentrantLock();
     private final ExecutorService es;
     private final Random random = new Random();
@@ -36,6 +39,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    @Transactional
     public void generateAccount(User user) {
         lock.lock();
 
@@ -88,12 +92,12 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional
-    public void deposit(Long accountId, Long amount) {
+    public void deposit(Long accountId, Long amount, TransactionType transactionType) {
         es.submit(() -> {
             lock.lock();
-
+            Account account;
             try {
-                Account account = accountRepository.findById(accountId)
+                 account = accountRepository.findById(accountId)
                         .orElseThrow(() -> new RuntimeException("Account not found"));
 
                 sleep(1000); // 입금 1초 걸린다고 가정
@@ -101,17 +105,19 @@ public class AccountServiceImpl implements AccountService {
             } finally {
                 lock.unlock();
             }
+
+//            logService.createTransactionLog(amount, transactionType, account);
         });
     }
 
     @Override
     @Transactional
-    public void withdraw(Long accountId, Long amount) {
+    public void withdraw(Long accountId, Long amount, TransactionType transactionType) {
         es.submit(() -> {
             lock.lock();
-
+            Account account;
             try {
-                Account account = accountRepository.findById(accountId)
+                 account = accountRepository.findById(accountId)
                         .orElseThrow(() -> new RuntimeException("Account not found"));
 
                 if (account.getBalance() < amount) {
@@ -123,6 +129,8 @@ public class AccountServiceImpl implements AccountService {
             } finally {
                 lock.unlock();
             }
+
+//            logService.createTransactionLog(amount, transactionType, account);
         });
     }
 }
