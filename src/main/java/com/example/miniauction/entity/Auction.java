@@ -35,14 +35,22 @@ public class Auction extends BaseTimeEntity {
     private Long bidAmount;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "seller_id", nullable = false)
     private User seller;
+
+    @ManyToOne
+    @JoinColumn(name = "highest_bidder_id")
+    private User highestBidder; // 현재 최고 입찰자
 
     @Column(nullable = false)
     private AuctionStatus status;
 
     @Column(nullable = false)
     private LocalDateTime endDate;
+
+    public void updateBid(Long bidAmount) {
+        this.bidAmount = bidAmount;
+    }
 
     private Auction(String title, String description, Long startPrice, LocalDateTime endDate,
                     User user) {
