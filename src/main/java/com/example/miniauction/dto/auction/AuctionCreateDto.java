@@ -12,5 +12,5 @@ public class AuctionCreateDto {
     private String title;
     private String description;
     private Long startPrice;
-    private AuctionEndType endType;
+    private int end;
 }

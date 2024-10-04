@@ -5,6 +5,7 @@ import com.example.miniauction.dto.auction.AuctionDetailDto;
 import com.example.miniauction.dto.auction.AuctionListDto;
 import com.example.miniauction.entity.Auction;
 import com.example.miniauction.entity.User;
+import com.example.miniauction.enums.AuctionEndType;
 import com.example.miniauction.repository.auction.AuctionRepository;
 import com.example.miniauction.repository.user.UserRepository;
 import com.example.miniauction.service.AuctionService;
@@ -41,12 +42,8 @@ public class AuctionServiceImpl implements AuctionService {
         User user = userRepository.findById(1L)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        LocalDateTime endDate = LocalDateTime.now();
-        switch (auctionCreateDto.getEndType()) {
-            case ONE -> endDate = endDate.plusDays(1);
-            case THREE -> endDate = endDate.plusDays(3);
-            case FIVE -> endDate = endDate.plusDays(5);
-        }
+        LocalDateTime endDate = AuctionEndType.getByKey(auctionCreateDto.getEnd())
+                .calculateEndDate(LocalDateTime.now());
 
         Auction auction = Auction.createAuction(auctionCreateDto, endDate, user);
         auctionRepository.save(auction);
