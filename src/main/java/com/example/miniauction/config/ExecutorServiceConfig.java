@@ -23,6 +23,7 @@ public class ExecutorServiceConfig implements AsyncConfigurer {
                 TimeUnit.SECONDS, new ArrayBlockingQueue<>(QUEUE_CAPACITY));
     }
 
+    // @Async 로 동작하는 입출금 로그 작성만을 위한 별도 스레드 풀 생성
     @Override
     public Executor getAsyncExecutor() {
         return new ThreadPoolTaskExecutor() {{
