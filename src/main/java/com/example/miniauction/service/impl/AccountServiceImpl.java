@@ -81,18 +81,10 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public List<TransactionLogDto> getTransactionLogs(Long accountId) {
-        Future<List<TransactionLogDto>> future = es.submit(() -> {
-            Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new RuntimeException("Account not found"));
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Account not found"));
 
-            return account.getTransactionLogs().stream().map(TransactionLogDto::new).toList();
-        });
-
-        try {
-            return future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException("로그 조회 중 예외 발생, 다시 시도하세요", e);
-        }
+        return account.getTransactionLogs().stream().map(TransactionLogDto::new).toList();
     }
 
     @Override
