@@ -1,11 +1,13 @@
 package com.example.miniauction.service.impl;
 
 import com.example.miniauction.dto.account.AccountDto;
+import com.example.miniauction.dto.account.AccountRequestDto;
 import com.example.miniauction.dto.transactionLog.TransactionLogDto;
 import com.example.miniauction.entity.Account;
 import com.example.miniauction.entity.TransactionLog;
 import com.example.miniauction.entity.User;
 import com.example.miniauction.repository.account.AccountRepository;
+import com.example.miniauction.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,10 +32,10 @@ class AccountServiceImplTest {
     private AccountRepository accountRepository;
 
     @Mock
-    private ExecutorService es;
+    private UserService userService;
 
     @Mock
-    private User mockUser;
+    private ExecutorService es;
 
     @InjectMocks
     private AccountServiceImpl accountService;
@@ -47,14 +49,14 @@ class AccountServiceImplTest {
                 testAccount, DEPOSIT));
         testAccount = new Account(1L, "1234-5678", 1000L, transactionLogs);
     }
-    
+
     @Test
     public void 계좌의_거래내역을_조회한다() throws Exception {
         //given
         Future<List<TransactionLogDto>> mockFuture = mock(Future.class);
         when(es.submit(any(Callable.class))).thenReturn(mockFuture);
         when(mockFuture.get()).thenReturn(testAccount.getTransactionLogs().stream().map(TransactionLogDto::new).toList());
-        
+
         //when
         List<TransactionLogDto> logs = accountService.getTransactionLogs(1L);
 
@@ -80,7 +82,7 @@ class AccountServiceImplTest {
         //when
         t1.start();
         t1.interrupt();
-        
+
         //then
         assertTrue(t1.isInterrupted());
     }
@@ -88,6 +90,7 @@ class AccountServiceImplTest {
     @Test
     public void 계좌_잔고를_조회한다() throws Exception {
         //given
+        when(userService.getUserAccount(any())).thenReturn(1L);
         when(accountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
 
         //when
@@ -101,28 +104,31 @@ class AccountServiceImplTest {
     @Test
     public void 출금_후_계좌_잔고를_조회한다() throws Exception {
         //given
+        when(userService.getUserAccount(any())).thenReturn(1L);
         when(accountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
         when(es.submit(any(Runnable.class))).thenAnswer(invocation -> {
             Runnable task = invocation.getArgument(0);
             task.run(); // 직접 실행
-            return null; // 반환값이 필요 없으므로 null
+            return CompletableFuture.completedFuture(null); // 반환값이 필요 없으므로 null
         });
+        AccountRequestDto dto = new AccountRequestDto(100L);
         CountDownLatch latch = new CountDownLatch(3);
 
         //when
         for (int i = 0; i < 4; i++) {
-            final long amount = 100L;
+            Future<?> future;
             if (i == 2) {
-                es.submit(() -> {
+                future = es.submit(() -> {
                     AccountDto accountDto = accountService.getAccountBalance(1L);
                     assertThat(accountDto.getBalance()).isEqualTo(800L);
                 });
             } else {
-                es.submit(() -> {
-                    accountService.withdraw(1L, amount, WITHDRAWAL);
+                 future = es.submit(() -> {
+                    accountService.withdraw(dto, 1L, WITHDRAWAL);
                     latch.countDown();
                 });
             }
+            future.get();
         }
 
         // lock 으로 인해 출금 완료 후 잔고 조회됨
@@ -151,51 +157,53 @@ class AccountServiceImplTest {
         when(accountRepository.existsAccountByAccountNumber(anyString())).thenReturn(false);
 
         // when
-        accountService.generateAccount(mockUser); // 계좌 생성
+        accountService.generateAccount(1L); // 계좌 생성
 
         // then
         // 계좌가 저장되는지 확인
         verify(accountRepository, times(1)).save(any(Account.class));
         // 계좌가 사용자에게 연결되는지 확인
-        verify(mockUser, times(1)).connectAccount(account);
+        verify(userService, times(1)).connectAccount(any(Account.class), any());
     }
 
     @Test
     public void 계좌에_500원을_입금한다() throws Exception {
         //given
+        when(userService.getUserAccount(any())).thenReturn(1L);
         when(accountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
         when(es.submit(any(Runnable.class))).thenAnswer(invocation -> {
             Runnable task = invocation.getArgument(0);
             task.run(); // 직접 실행
-            return null; // 반환값이 필요 없으므로 null
+            return CompletableFuture.completedFuture(null); // 반환값이 필요 없으므로 null
         });
+        AccountRequestDto dto = new AccountRequestDto(500L);
 
         //when
         es.submit(() -> {
-            accountService.deposit(1L, 500L, DEPOSIT);
+            accountService.deposit(dto, 1L, DEPOSIT);
         });
 
         //then
         assertThat(testAccount.getBalance()).isEqualTo(1500L);
     }
-    
+
     @Test
     public void 계좌에_5번_동시에_입금한다() throws Exception {
         //given
+        when(userService.getUserAccount(any())).thenReturn(1L);
         when(accountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
         when(es.submit(any(Runnable.class))).thenAnswer(invocation -> {
             Runnable task = invocation.getArgument(0);
             task.run(); // 직접 실행
-            return null; // 반환값이 필요 없으므로 null
+            return CompletableFuture.completedFuture(null); // 반환값이 필요 없으므로 null
         });
+        AccountRequestDto dto = new AccountRequestDto(500L);
         CountDownLatch latch = new CountDownLatch(5); // 입금 작업 개수만큼 카운트다운 설정
-        
+
         //when
         for (int i = 0; i < 5; i++) {
-            final long amount = 500L;
-
             es.submit(() -> {
-                accountService.deposit(1L, amount, DEPOSIT);
+                accountService.deposit(dto, 1L, DEPOSIT);
                 latch.countDown();
             });
         }
@@ -210,19 +218,20 @@ class AccountServiceImplTest {
     @Test
     public void 계좌에서_100원씩_5번_동시에_출금한다() throws Exception {
         // given
+        when(userService.getUserAccount(any())).thenReturn(1L);
         when(accountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
         when(es.submit(any(Runnable.class))).thenAnswer(invocation -> {
             Runnable task = invocation.getArgument(0);
             task.run(); // 직접 실행
-            return null; // 반환값이 필요 없으므로 null
+            return CompletableFuture.completedFuture(null); // 반환값이 필요 없으므로 null
         });
+        AccountRequestDto dto = new AccountRequestDto(100L);
         CountDownLatch latch = new CountDownLatch(5);
 
         // when
         for (int i = 0; i < 5; i++) {
-            final long amount = 100L;
             es.submit(() -> {
-                accountService.withdraw(1L, amount, WITHDRAWAL);
+                accountService.withdraw(dto, 1L, WITHDRAWAL);
                 latch.countDown();
             });
         }
@@ -240,11 +249,12 @@ class AccountServiceImplTest {
         when(es.submit(any(Runnable.class))).thenAnswer(invocation -> {
             Runnable task = invocation.getArgument(0);
             task.run(); // 직접 실행
-            return null; // 반환값이 필요 없으므로 null
+            return CompletableFuture.completedFuture(null); // 반환값이 필요 없으므로 null
         });
+        AccountRequestDto dto = new AccountRequestDto(5000L);
 
         // when
         // then
-        assertThrows(RuntimeException.class, () -> accountService.withdraw(1L, 5000L, WITHDRAWAL));
+        assertThrows(RuntimeException.class, () -> accountService.withdraw(dto, 1L, WITHDRAWAL));
     }
 }

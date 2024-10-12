@@ -115,7 +115,7 @@ class AuctionServiceImplTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(mockUser));
 
         //when
-        auctionService.registerAuction(dto);
+        auctionService.registerAuction(dto, 1L);
 
         //then
         verify(auctionRepository).save(any(Auction.class));
@@ -130,7 +130,8 @@ class AuctionServiceImplTest {
 
         //when
         //then
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> auctionService.registerAuction(dto));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> auctionService.registerAuction(dto, 1L));
         assertThat(ex).hasMessage("Illegal key: " + 10);
     }
 
@@ -143,7 +144,8 @@ class AuctionServiceImplTest {
 
         //when
         //then
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> auctionService.registerAuction(dto));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> auctionService.registerAuction(dto, 1L));
         assertThat(ex).hasMessage("User not found");
     }
 
@@ -157,7 +159,8 @@ class AuctionServiceImplTest {
 
         //when
         //then
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> auctionService.removeAuction(1L));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> auctionService.removeAuction(1L, 1L));
         assertThat(ex).hasMessage("Only seller can delete auction");
     }
 
@@ -171,7 +174,8 @@ class AuctionServiceImplTest {
 
         //when
         //then
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> auctionService.removeAuction(1L));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> auctionService.removeAuction(1L, 1L));
         assertThat(ex).hasMessage("Already bidding, cannot delete auction");
     }
 }

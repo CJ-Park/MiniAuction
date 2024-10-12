@@ -38,7 +38,7 @@ public class User {
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<Bid> bids = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "seller", fetch = FetchType.LAZY)
     private List<Auction> auctions = new ArrayList<>();
 
     private User(String email, String password, String nickname, String phone) {

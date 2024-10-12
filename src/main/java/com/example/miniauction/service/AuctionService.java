@@ -13,9 +13,11 @@ public interface AuctionService {
     // 경매 물품 조회
     AuctionDetailDto getAuctionDetail(Long id);
 
+    // 본인이 등록한 경매 리스트 조회
+
     // 경매 물품 등록
-    void registerAuction(AuctionCreateDto auctionCreateDto);
+    void registerAuction(AuctionCreateDto auctionCreateDto, Long userId);
 
     // 경매 물품 삭제
-    void removeAuction(Long id);
+    void removeAuction(Long id, Long userId);
 }

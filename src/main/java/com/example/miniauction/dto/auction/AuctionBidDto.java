@@ -7,9 +7,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuctionCreateDto {
-    private String title;
-    private String description;
-    private Long startPrice;
-    private int end;
+public class AuctionBidDto {
+    private Long auctionId;
+    private Long bidAmount;
 }

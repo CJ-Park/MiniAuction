@@ -1,5 +1,7 @@
 package com.example.miniauction.service.impl;
 
+import com.example.miniauction.dto.account.AccountRequestDto;
+import com.example.miniauction.dto.auction.AuctionBidDto;
 import com.example.miniauction.dto.auction.AuctionCreateDto;
 import com.example.miniauction.dto.user.UserCreateDto;
 import com.example.miniauction.entity.Account;
@@ -13,6 +15,7 @@ import com.example.miniauction.service.AccountService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -79,7 +82,7 @@ class BidServiceImplTest {
         }
         return Auction.createAuction(dto, endDate, user);
     }
-    
+
     @Test
     public void 경매_입찰_성공() throws Exception {
         //given
@@ -90,15 +93,19 @@ class BidServiceImplTest {
             task.run(); // 직접 실행
             return null; // 반환값이 필요 없으므로 null
         });
-        
+        AuctionBidDto dto = new AuctionBidDto(1L, 100L);
+
         //when
-        bidService.addBid(1L, 100L, 1L);
-        
+        bidService.addBid(dto, 1L);
+
         //then
+        ArgumentCaptor<AccountRequestDto> captor = ArgumentCaptor.forClass(AccountRequestDto.class);
         verify(bidRepository, times(1)).save(any());
-        verify(accountService, times(1)).withdraw(1L, 100L, BIDDING);
+        verify(accountService, times(1))
+                .withdraw(captor.capture(), eq(1L), eq(BIDDING));
+        assertThat(captor.getValue().getAmount()).isEqualTo(dto.getBidAmount());
     }
-    
+
     @Test
     public void 입찰_갱신_시_이전_입찰자는_입찰금을_반환_받는다() throws Exception {
         //given
@@ -117,13 +124,16 @@ class BidServiceImplTest {
             task.run(); // 직접 실행
             return null; // 반환값이 필요 없으므로 null
         });
+        AuctionBidDto dto = new AuctionBidDto(1L, 1000L);
 
         //when
-        bidService.addBid(1L, 1000L, 1L);
-        
+        bidService.addBid(dto, 1L);
+
         //then
-        verify(accountService, times(1)).deposit(eq(previousBidder.getAccount().getId()),
-                eq(previousBidAmount), eq(REFUND));
+        ArgumentCaptor<AccountRequestDto> captor = ArgumentCaptor.forClass(AccountRequestDto.class);
+        verify(accountService, times(1)).deposit(captor.capture(),
+                eq(null), eq(REFUND));
+        assertThat(captor.getValue().getAmount()).isEqualTo(previousBidAmount);
     }
 
     @Test
@@ -141,11 +151,12 @@ class BidServiceImplTest {
             task.run();
             return null;
         });
+        AuctionBidDto dto = new AuctionBidDto(1L, 1000L);
 
         //when
         //then
         RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> bidService.addBid(1L, 1000L, 1L));
+                () -> bidService.addBid(dto, 1L));
         assertThat(ex).hasMessage("Lower bid than the highest bid");
     }
 
@@ -153,11 +164,12 @@ class BidServiceImplTest {
     public void 입찰_시_유저_정보가_없으면_예외가_발생한다() throws Exception {
         //given
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        AuctionBidDto dto = new AuctionBidDto(1L, 1000L);
 
         //when
         //then
         RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> bidService.addBid(1L, 1000L, 1L));
+                () -> bidService.addBid(dto, 1L));
         assertThat(ex).hasMessage("User not found");
     }
 
@@ -172,11 +184,12 @@ class BidServiceImplTest {
             task.run();
             return null;
         });
+        AuctionBidDto dto = new AuctionBidDto(1L, 1000L);
 
         //when
         //then
         RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> bidService.addBid(1L, 1000L, 1L));
+                () -> bidService.addBid(dto, 1L));
         assertThat(ex).hasMessage("Auction not found");
     }
 }

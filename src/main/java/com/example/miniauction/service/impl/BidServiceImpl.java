@@ -1,5 +1,7 @@
 package com.example.miniauction.service.impl;
 
+import com.example.miniauction.dto.account.AccountRequestDto;
+import com.example.miniauction.dto.auction.AuctionBidDto;
 import com.example.miniauction.entity.Auction;
 import com.example.miniauction.entity.Bid;
 import com.example.miniauction.entity.User;
@@ -31,7 +33,7 @@ public class BidServiceImpl implements BidService {
     private final Lock lock = new ReentrantLock();
 
     @Override
-    public void addBid(Long auctionId, Long bidAmount, Long userId) {
+    public void addBid(AuctionBidDto dto, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -41,31 +43,31 @@ public class BidServiceImpl implements BidService {
             Long previousBidAmount;
 
             try {
-                Auction auction = auctionRepository.findById(auctionId)
+                Auction auction = auctionRepository.findById(dto.getAuctionId())
                         .orElseThrow(() -> new RuntimeException("Auction not found"));
 
                 previousBidder = auction.getHighestBidder();
                 previousBidAmount = auction.getBidAmount();
-                if (previousBidAmount >= bidAmount) {
+                if (previousBidAmount >= dto.getBidAmount()) {
                     throw new RuntimeException("Lower bid than the highest bid");
                 }
 
-                auction.updateBidInfo(user, bidAmount);
-                Bid bid = Bid.createBid(bidAmount, user, auction);
+                auction.updateBidInfo(user, dto.getBidAmount());
+                Bid bid = Bid.createBid(dto.getBidAmount(), user, auction);
                 bidRepository.save(bid);
             } finally {
                 lock.unlock();
             }
 
-            accountService.withdraw(user.getAccount().getId(), bidAmount, BIDDING);
+            accountService.withdraw(new AccountRequestDto(dto.getBidAmount()), userId, BIDDING);
 
             if (previousBidder != null) {
                 es.submit(() -> {
                     try {
-                        accountService.deposit(previousBidder.getAccount().getId(),
-                                previousBidAmount, REFUND);
+                        accountService.deposit(new AccountRequestDto(previousBidAmount),
+                                previousBidder.getId(), REFUND);
 
-                        Auction auction = auctionRepository.findById(auctionId)
+                        Auction auction = auctionRepository.findById(dto.getAuctionId())
                                 .orElseThrow(() -> new RuntimeException("Auction not found"));
 
                         Bid bidInfo = bidRepository.

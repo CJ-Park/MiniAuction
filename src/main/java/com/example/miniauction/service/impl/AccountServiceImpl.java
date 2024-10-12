@@ -1,13 +1,14 @@
 package com.example.miniauction.service.impl;
 
 import com.example.miniauction.dto.account.AccountDto;
+import com.example.miniauction.dto.account.AccountRequestDto;
 import com.example.miniauction.dto.transactionLog.TransactionLogDto;
 import com.example.miniauction.entity.Account;
-import com.example.miniauction.entity.User;
 import com.example.miniauction.enums.TransactionType;
 import com.example.miniauction.repository.account.AccountRepository;
 import com.example.miniauction.service.AccountService;
 import com.example.miniauction.service.TransactionLogService;
+import com.example.miniauction.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static com.example.miniauction.util.MyLogger.log;
 import static com.example.miniauction.util.ThreadUtils.sleep;
 
 @Service
@@ -27,6 +29,7 @@ import static com.example.miniauction.util.ThreadUtils.sleep;
 @Transactional(readOnly = true)
 public class AccountServiceImpl implements AccountService {
     private final AccountRepository accountRepository;
+    private final UserService userService;
     private final TransactionLogService logService;
     private final Lock lock = new ReentrantLock();
     private final ExecutorService es;
@@ -40,7 +43,7 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional
-    public void generateAccount(User user) {
+    public void generateAccount(Long userId) {
         lock.lock();
 
         try {
@@ -55,14 +58,16 @@ public class AccountServiceImpl implements AccountService {
                     .build();
 
             Account saveAccount = accountRepository.save(account);
-            user.connectAccount(saveAccount);
+            userService.connectAccount(saveAccount, userId);
         } finally {
             lock.unlock();
         }
     }
 
     @Override
-    public AccountDto getAccountBalance(Long accountId) {
+    public AccountDto getAccountBalance(Long userId) {
+        Long accountId = userService.getUserAccount(userId);
+
         lock.lock();
 
         try {
@@ -92,39 +97,63 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional
-    public void deposit(Long accountId, Long amount, TransactionType transactionType) {
-        es.submit(() -> {
+    public void deposit(AccountRequestDto dto, Long userId, TransactionType transactionType) {
+        Long accountId = userService.getUserAccount(userId);
+
+        Future<?> future = es.submit(() -> {
             lock.lock();
             Account account;
             try {
-                 account = accountRepository.findById(accountId)
+                account = accountRepository.findById(accountId)
                         .orElseThrow(() -> new RuntimeException("Account not found"));
 
+                log("입금 전 잔고 - " + account.getBalance());
+                account.deposit(dto.getAmount());
+
+                log("입금중..");
                 sleep(1000); // 입금 1초 걸린다고 가정
-                account.deposit(amount);
+
+                accountRepository.save(account);
+                log("입금 완료! / 잔고 - " + account.getBalance());
             } finally {
                 lock.unlock();
             }
 
 //            logService.createTransactionLog(amount, transactionType, account);
         });
+
+        try {
+            future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException("입금 도중 에러가 발생했습니다.", e);
+        }
     }
 
     @Override
     @Transactional
-    public void withdraw(Long accountId, Long amount, TransactionType transactionType) {
-        es.submit(() -> {
+    public void withdraw(AccountRequestDto dto, Long userId, TransactionType transactionType) {
+        Long accountId = userService.getUserAccount(userId);
+
+        Future<?> future = es.submit(() -> {
             lock.lock();
             Account account;
             try {
-                 account = accountRepository.findById(accountId)
+                account = accountRepository.findById(accountId)
                         .orElseThrow(() -> new RuntimeException("Account not found"));
 
-                if (account.getBalance() < amount) {
+                if (account.getBalance() < dto.getAmount()) {
                     throw new RuntimeException("잔고가 부족합니다.");
                 } else {
+                    log("출금 전 잔고 - " + account.getBalance());
+                    account.withdraw(dto.getAmount());
+
+                    log("출금중..");
                     sleep(1000); // 출금 1초 걸린다고 가정
-                    account.withdraw(amount);
+
+                    accountRepository.save(account);
+                    log("출금 완료! / 잔고 - " + account.getBalance());
+
+                    // 이벤트리스너 결과 넘겨라!
                 }
             } finally {
                 lock.unlock();
@@ -132,5 +161,11 @@ public class AccountServiceImpl implements AccountService {
 
 //            logService.createTransactionLog(amount, transactionType, account);
         });
+
+        try {
+            future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException("출금 도중 에러가 발생했습니다.", e);
+        }
     }
 }

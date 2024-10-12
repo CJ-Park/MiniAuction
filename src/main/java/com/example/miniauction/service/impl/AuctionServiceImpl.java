@@ -38,8 +38,8 @@ public class AuctionServiceImpl implements AuctionService {
     }
 
     @Override
-    public void registerAuction(AuctionCreateDto auctionCreateDto) {
-        User user = userRepository.findById(1L)
+    public void registerAuction(AuctionCreateDto auctionCreateDto, Long userId) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         LocalDateTime endDate = AuctionEndType.getByKey(auctionCreateDto.getEnd())
@@ -51,8 +51,8 @@ public class AuctionServiceImpl implements AuctionService {
 
     // 경매 삭제는 입찰자가 없을 경우만 가능
     @Override
-    public void removeAuction(Long id) {
-        User user = userRepository.findById(1L)
+    public void removeAuction(Long id, Long userId) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Auction auction = auctionRepository.findById(id)
