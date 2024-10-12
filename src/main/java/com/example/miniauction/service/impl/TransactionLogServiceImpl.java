@@ -10,6 +10,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import static com.example.miniauction.util.MyLogger.log;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -18,15 +20,16 @@ public class TransactionLogServiceImpl implements TransactionLogService {
 
     @Async
     @Override
-    public void createTransactionLog(Long amount, TransactionType type, Account account) {
-        Long left = account.getBalance();
+    public void createTransactionLog(Long amount, Long balance, TransactionType type, Account account) {
         TransactionLog log = TransactionLog.builder()
                 .amount(amount)
                 .account(account)
-                .leftBalance(left)
+                .leftBalance(balance)
                 .type(type)
                 .build();
 
+
         logRepository.save(log);
+        log("로그 저장 완료 - " + type.getDescription());
     }
 }

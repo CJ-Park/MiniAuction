@@ -38,6 +38,7 @@ public class AuctionServiceImpl implements AuctionService {
     }
 
     @Override
+    @Transactional
     public void registerAuction(AuctionCreateDto auctionCreateDto, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -51,6 +52,7 @@ public class AuctionServiceImpl implements AuctionService {
 
     // 경매 삭제는 입찰자가 없을 경우만 가능
     @Override
+    @Transactional
     public void removeAuction(Long id, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));

@@ -42,7 +42,7 @@ class TransactionLogServiceImplTest {
         final Long amount = 1000L;
 
         //when
-        logService.createTransactionLog(amount, DEPOSIT, testAccount);
+        logService.createTransactionLog(amount, testAccount.getBalance() + amount, DEPOSIT, testAccount);
 
         //then
         verify(logRepository, times(1)).save(any());

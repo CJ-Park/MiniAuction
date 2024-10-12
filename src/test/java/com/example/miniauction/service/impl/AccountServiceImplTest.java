@@ -5,8 +5,8 @@ import com.example.miniauction.dto.account.AccountRequestDto;
 import com.example.miniauction.dto.transactionLog.TransactionLogDto;
 import com.example.miniauction.entity.Account;
 import com.example.miniauction.entity.TransactionLog;
-import com.example.miniauction.entity.User;
 import com.example.miniauction.repository.account.AccountRepository;
+import com.example.miniauction.service.TransactionLogService;
 import com.example.miniauction.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +37,9 @@ class AccountServiceImplTest {
     @Mock
     private ExecutorService es;
 
+    @Mock
+    private TransactionLogService logService;
+
     @InjectMocks
     private AccountServiceImpl accountService;
 
@@ -53,9 +56,7 @@ class AccountServiceImplTest {
     @Test
     public void 계좌의_거래내역을_조회한다() throws Exception {
         //given
-        Future<List<TransactionLogDto>> mockFuture = mock(Future.class);
-        when(es.submit(any(Callable.class))).thenReturn(mockFuture);
-        when(mockFuture.get()).thenReturn(testAccount.getTransactionLogs().stream().map(TransactionLogDto::new).toList());
+        when(accountRepository.findById(anyLong())).thenReturn(Optional.of(testAccount));
 
         //when
         List<TransactionLogDto> logs = accountService.getTransactionLogs(1L);

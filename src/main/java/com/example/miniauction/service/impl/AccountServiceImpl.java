@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -97,16 +98,19 @@ public class AccountServiceImpl implements AccountService {
                 account = accountRepository.findById(accountId)
                         .orElseThrow(() -> new RuntimeException("Account not found"));
 
-                log("입금 전 잔고 - " + account.getBalance());
+                log("입금 전 잔고 - " + account.getBalance() + " / 유저 아이디 - " + userId);
                 account.deposit(dto.getAmount());
 
                 log("입금중..");
                 sleep(1000); // 입금 1초 걸린다고 가정
 
                 accountRepository.save(account);
-                log("입금 완료! / 잔고 - " + account.getBalance());
+                log("입금 완료! / 잔고 - " + account.getBalance() + " / 유저 아이디 - " + userId);
 
-                // 입금 완료 이벤트 발생
+                // 입금 완료 이벤트 발생 (사용자에게 알림 / 푸시 이벤트 등)
+
+                // 입출금 로그 생성
+                logService.createTransactionLog(dto.getAmount(), account.getBalance(), transactionType, account);
             } catch (Exception e) {
                 // 입금 실패 이벤트 발생
                 log("입금에 실패했습니다. 예외 - " + e.getMessage());
@@ -114,17 +118,16 @@ public class AccountServiceImpl implements AccountService {
             } finally {
                 lock.unlock();
             }
-
-            logService.createTransactionLog(dto.getAmount(), transactionType, account);
         });
     }
 
+    // 입찰 시 동기화 및 예외 처리를 위해 Future<?> 타입 반환
     @Override
     @Transactional
-    public void withdraw(AccountRequestDto dto, Long userId, TransactionType transactionType) {
+    public Future<?> withdraw(AccountRequestDto dto, Long userId, TransactionType transactionType) {
         Long accountId = userService.getUserAccount(userId);
 
-        es.submit(() -> {
+        return es.submit(() -> {
             lock.lock();
             Account account;
             try {
@@ -134,16 +137,19 @@ public class AccountServiceImpl implements AccountService {
                 if (account.getBalance() < dto.getAmount()) {
                     throw new RuntimeException("잔고가 부족합니다.");
                 } else {
-                    log("출금 전 잔고 - " + account.getBalance());
+                    log("출금 전 잔고 - " + account.getBalance() + " / 유저 아이디 - " + userId);
                     account.withdraw(dto.getAmount());
 
                     log("출금중..");
                     sleep(1000); // 출금 1초 걸린다고 가정
 
                     accountRepository.save(account);
-                    log("출금 완료! / 잔고 - " + account.getBalance());
+                    log("출금 완료! / 잔고 - " + account.getBalance() + " / 유저 아이디 - " + userId);
 
-                    // 출금 완료 이벤트 발생
+                    // 출금 완료 이벤트 발생 (사용자에게 알림 / 푸시 이벤트 등)
+
+                    // 입출금 로그 생성
+                    logService.createTransactionLog(dto.getAmount(), account.getBalance(), transactionType, account);
                 }
             } catch (Exception e) {
                 // 출금 실패 이벤트 발생
@@ -152,8 +158,6 @@ public class AccountServiceImpl implements AccountService {
             } finally {
                 lock.unlock();
             }
-
-            logService.createTransactionLog(dto.getAmount(), transactionType, account);
         });
     }
 }
