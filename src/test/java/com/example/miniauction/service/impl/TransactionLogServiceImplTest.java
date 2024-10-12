@@ -2,7 +2,6 @@ package com.example.miniauction.service.impl;
 
 import com.example.miniauction.entity.Account;
 import com.example.miniauction.entity.TransactionLog;
-import com.example.miniauction.enums.TransactionType;
 import com.example.miniauction.repository.tansactionLog.TransactionLogRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,11 +39,10 @@ class TransactionLogServiceImplTest {
     @Test
     public void 로그를_생성할_수_있다() throws Exception {
         //given
-        Long amount = 1000L;
-        TransactionType type = TransactionType.DEPOSIT;
+        final Long amount = 1000L;
 
         //when
-        logService.createTransactionLog(amount, type, testAccount);
+        logService.createTransactionLog(amount, DEPOSIT, testAccount);
 
         //then
         verify(logRepository, times(1)).save(any());
