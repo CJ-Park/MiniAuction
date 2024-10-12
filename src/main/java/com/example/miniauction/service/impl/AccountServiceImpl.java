@@ -15,9 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -92,7 +90,7 @@ public class AccountServiceImpl implements AccountService {
     public void deposit(AccountRequestDto dto, Long userId, TransactionType transactionType) {
         Long accountId = userService.getUserAccount(userId);
 
-        Future<?> future = es.submit(() -> {
+        es.submit(() -> {
             lock.lock();
             Account account;
             try {
@@ -107,18 +105,18 @@ public class AccountServiceImpl implements AccountService {
 
                 accountRepository.save(account);
                 log("입금 완료! / 잔고 - " + account.getBalance());
+
+                // 입금 완료 이벤트 발생
+            } catch (Exception e) {
+                // 입금 실패 이벤트 발생
+                log("입금에 실패했습니다. 예외 - " + e.getMessage());
+                throw new RuntimeException(e);
             } finally {
                 lock.unlock();
             }
 
-//            logService.createTransactionLog(amount, transactionType, account);
+            logService.createTransactionLog(dto.getAmount(), transactionType, account);
         });
-
-        try {
-            future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException("입금 도중 에러가 발생했습니다.", e);
-        }
     }
 
     @Override
@@ -126,7 +124,7 @@ public class AccountServiceImpl implements AccountService {
     public void withdraw(AccountRequestDto dto, Long userId, TransactionType transactionType) {
         Long accountId = userService.getUserAccount(userId);
 
-        Future<?> future = es.submit(() -> {
+        es.submit(() -> {
             lock.lock();
             Account account;
             try {
@@ -145,19 +143,17 @@ public class AccountServiceImpl implements AccountService {
                     accountRepository.save(account);
                     log("출금 완료! / 잔고 - " + account.getBalance());
 
-                    // 이벤트리스너 결과 넘겨라!
+                    // 출금 완료 이벤트 발생
                 }
+            } catch (Exception e) {
+                // 출금 실패 이벤트 발생
+                log("출금에 실패했습니다. 예외 - " + e.getMessage());
+                throw new RuntimeException(e);
             } finally {
                 lock.unlock();
             }
 
-//            logService.createTransactionLog(amount, transactionType, account);
+            logService.createTransactionLog(dto.getAmount(), transactionType, account);
         });
-
-        try {
-            future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException("출금 도중 에러가 발생했습니다.", e);
-        }
     }
 }
