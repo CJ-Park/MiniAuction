@@ -2,14 +2,12 @@ package com.example.miniauction.entity;
 
 import com.example.miniauction.enums.TransactionType;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "transaction_logs")
 @Getter
+@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 public class TransactionLog extends BaseTimeEntity {
