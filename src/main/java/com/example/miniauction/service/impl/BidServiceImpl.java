@@ -14,8 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -32,6 +31,7 @@ public class BidServiceImpl implements BidService {
     private final UserRepository userRepository;
     private final AuctionRepository auctionRepository;
     private final AccountService accountService;
+    private final ConcurrentHashMap<Long, Lock> auctionLocks = new ConcurrentHashMap<>();
 //    private final ExecutorService es;
 //    private final Lock lock = new ReentrantLock();
 
@@ -48,38 +48,47 @@ public class BidServiceImpl implements BidService {
         Auction auction = auctionRepository.findById(dto.getAuctionId())
                 .orElseThrow(() -> new RuntimeException("Auction not found"));
 
-        User previousBidder = auction.getHighestBidder();
-        Long previousBidAmount = auction.getBidAmount();
+        Lock lock = auctionLocks.computeIfAbsent(auction.getId(), id -> new ReentrantLock());
 
-        if (previousBidAmount >= dto.getBidAmount()) {
-            throw new RuntimeException("Lower bid than the highest bid");
-        }
-
-        if (previousBidder != null && previousBidder.equals(user)) {
-            throw new RuntimeException("Already the highest bidder");
-        }
-
-        // 입찰 정보 갱신 및 Bid 저장
-        auction.updateBidInfo(user, dto.getBidAmount());
-        Bid bid = Bid.createBid(dto.getBidAmount(), user, auction);
-
-        // 출금 작업 수행
-        Future<?> future = accountService.withdraw(new AccountRequestDto(dto.getBidAmount()), userId, BIDDING);
+        lock.lock();
         try {
-            future.get();
-        } catch (Exception e) {
-            throw new RuntimeException("출금 실패 - " + e.getMessage());
-        }
+            User previousBidder = auction.getHighestBidder();
+            Long previousBidAmount = auction.getBidAmount();
 
-        if (previousBidder != null) {
-            // 환불 작업은 비동기적으로 처리
-            accountService.deposit(new AccountRequestDto(previousBidAmount), previousBidder.getId(), REFUND);
+            if (previousBidAmount >= dto.getBidAmount()) {
+                log("입찰금은 현재 최고 입찰가보다 높아야 됨");
+                throw new RuntimeException("Lower bid than the highest bid");
+            }
 
-            // 이전 입찰자 상태 업데이트
-            Bid bidInfo = bidRepository.findBidByAuctionAndUserAndStatus(auction, previousBidder, OVERBID);
-            bidInfo.updateStatus(FAILED);
+            if (previousBidder != null && previousBidder.equals(user)) {
+                log("이미 최고 입찰중임");
+                throw new RuntimeException("Already the highest bidder");
+            }
+
+            // 입찰 정보 갱신 및 Bid 저장
+            auction.updateBidInfo(user, dto.getBidAmount());
+            Bid bid = Bid.createBid(dto.getBidAmount(), user, auction);
+
+            // 출금 작업 수행
+            Future<?> future = accountService.withdraw(new AccountRequestDto(dto.getBidAmount()), userId, BIDDING);
+            try {
+                future.get();
+            } catch (Exception e) {
+                throw new RuntimeException("출금 실패 - " + e.getMessage());
+            }
+
+            if (previousBidder != null) {
+                // 환불 작업은 비동기적으로 처리
+                accountService.deposit(new AccountRequestDto(previousBidAmount), previousBidder.getId(), REFUND);
+
+                // 이전 입찰자 상태 업데이트
+                Bid bidInfo = bidRepository.findBidByAuctionAndUserAndStatus(auction, previousBidder, OVERBID);
+                bidInfo.updateStatus(FAILED);
+            }
+            bidRepository.save(bid);
+        } finally {
+            lock.unlock();
         }
-        bidRepository.save(bid);
 
         // 비동기 멀티스레드 처리 방식 -> 사용자가 예외를 받아보려면 이벤트 기반으로 사용자에게 푸쉬해줘야됨
 //        es.submit(() -> {

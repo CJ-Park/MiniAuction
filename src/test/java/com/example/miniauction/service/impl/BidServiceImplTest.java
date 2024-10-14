@@ -9,6 +9,7 @@ import com.example.miniauction.entity.Auction;
 import com.example.miniauction.entity.Bid;
 import com.example.miniauction.entity.User;
 import com.example.miniauction.enums.AuctionEndType;
+import com.example.miniauction.enums.AuctionStatus;
 import com.example.miniauction.enums.BidStatus;
 import com.example.miniauction.enums.TransactionType;
 import com.example.miniauction.repository.auction.AuctionRepository;
@@ -27,7 +28,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.example.miniauction.enums.TransactionType.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,9 +51,6 @@ class BidServiceImplTest {
 
     @Mock
     private AccountService accountService;
-
-    @Mock
-    private ExecutorService es;
 
     @InjectMocks
     private BidServiceImpl bidService;
@@ -84,31 +85,32 @@ class BidServiceImplTest {
             case FIVE -> endDate = now.plusDays(5);
             default -> throw new IllegalStateException("Unexpected end type");
         }
-        return Auction.createAuction(dto, endDate, user);
+        return new Auction(1L, dto.getTitle(), dto.getDescription(), dto.getStartPrice(),
+                0L, user, null, AuctionStatus.PROGRESS, endDate);
     }
 
+//    @Test
+//    public void 경매_입찰_성공() throws Exception {
+//        //given
+//        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+//        when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
+//        when(accountService.withdraw(any(AccountRequestDto.class), anyLong(), any(TransactionType.class)))
+//                .thenReturn(CompletableFuture.completedFuture(null));
+//        AuctionBidDto dto = new AuctionBidDto(1L, 100L);
+//
+//        //when
+//        bidService.addBid(dto, 1L);
+//
+//        //then
+//        ArgumentCaptor<AccountRequestDto> captor = ArgumentCaptor.forClass(AccountRequestDto.class);
+//        verify(bidRepository, times(1)).save(any());
+//        verify(accountService, times(1))
+//                .withdraw(captor.capture(), eq(1L), eq(BIDDING));
+//        assertThat(captor.getValue().getAmount()).isEqualTo(dto.getBidAmount());
+//    }
+
     @Test
-    public void 싱글스레드_경매_입찰_성공() throws Exception {
-        //given
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
-        when(accountService.withdraw(any(AccountRequestDto.class), anyLong(), any(TransactionType.class)))
-                .thenReturn(CompletableFuture.completedFuture(null));
-        AuctionBidDto dto = new AuctionBidDto(1L, 100L);
-
-        //when
-        bidService.addBid(dto, 1L);
-
-        //then
-        ArgumentCaptor<AccountRequestDto> captor = ArgumentCaptor.forClass(AccountRequestDto.class);
-        verify(bidRepository, times(1)).save(any());
-        verify(accountService, times(1))
-                .withdraw(captor.capture(), eq(1L), eq(BIDDING));
-        assertThat(captor.getValue().getAmount()).isEqualTo(dto.getBidAmount());
-    }
-
-    @Test
-    public void 싱글스레드_입찰_갱신_시_이전_입찰자는_입찰금을_반환_받는다() throws Exception {
+    public void 입찰_갱신_시_이전_입찰자는_입찰금을_반환_받는다() throws Exception {
         //given
         User previousBidder = createUser("email2", "1212", "nick", "010-0011-0011");
         Long previousBidAmount = 500L;
@@ -137,7 +139,7 @@ class BidServiceImplTest {
     }
 
     @Test
-    public void 싱글스레드_최고_입찰가보다_낮은_가격으로_입찰_시_예외가_발생한다() throws Exception {
+    public void 최고_입찰가보다_낮은_가격으로_입찰_시_예외가_발생한다() throws Exception {
         //given
         User previousBidder = createUser("email2", "1212", "nick", "010-0011-0011");
         Long previousBidAmount = 2500L;
@@ -203,30 +205,70 @@ class BidServiceImplTest {
         assertThat(ex).hasMessage("Auction not found");
     }
 
-//    @Test
-//    public void 멀티스레드_경매_입찰_성공() throws Exception {
-//        //given
-//        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-//        when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
-//        when(accountService.withdraw(any(AccountRequestDto.class), anyLong(), any(TransactionType.class)))
-//                .thenReturn(CompletableFuture.completedFuture(null));
-//        when(es.submit(any(Runnable.class))).thenAnswer(invocation -> {
-//            Runnable task = invocation.getArgument(0);
-//            task.run(); // 직접 실행
-//            return null; // 반환값이 필요 없으므로 null
-//        });
-//        AuctionBidDto dto = new AuctionBidDto(1L, 100L);
-//
-//        //when
-//        bidService.addBid(dto, 1L);
-//
-//        //then
-//        ArgumentCaptor<AccountRequestDto> captor = ArgumentCaptor.forClass(AccountRequestDto.class);
-//        verify(bidRepository, times(1)).save(any());
-//        verify(accountService, times(1))
-//                .withdraw(captor.capture(), eq(1L), eq(BIDDING));
-//        assertThat(captor.getValue().getAmount()).isEqualTo(dto.getBidAmount());
-//    }
+    @Test
+    public void 멀티스레드_경매_입찰_성공() throws Exception {
+        //given
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
+        when(accountService.withdraw(any(AccountRequestDto.class), anyLong(), any(TransactionType.class)))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        AuctionBidDto dto = new AuctionBidDto(1L, 100L);
+
+        //when
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> bidService.addBid(dto, 1L));
+        future.join();
+
+        //then
+        ArgumentCaptor<AccountRequestDto> captor = ArgumentCaptor.forClass(AccountRequestDto.class);
+        verify(bidRepository, times(1)).save(any());
+        verify(accountService, times(1))
+                .withdraw(captor.capture(), eq(1L), eq(BIDDING));
+        assertThat(captor.getValue().getAmount()).isEqualTo(dto.getBidAmount());
+    }
+    
+    @Test
+    public void 멀티스레드_동시_입찰_시_하나만_성공() throws Exception {
+        //given
+        User user2 = createUser("ab", "ab", "ab", "ab");
+        User user3 = createUser("cd", "cd", "cd", "cd");
+        user2.connectAccount(new Account(2L, "1234-0000", 2000L, new ArrayList<>()));
+        user3.connectAccount(new Account(3L, "1234-0100", 3000L, new ArrayList<>()));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(user2));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(user3));
+        when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
+        when(accountService.withdraw(any(AccountRequestDto.class), anyLong(), any(TransactionType.class)))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        AuctionBidDto dto = new AuctionBidDto(1L, 100L);
+
+        //when
+        CompletableFuture<Void> future1 = CompletableFuture.runAsync(() -> bidService.addBid(dto, 1L))
+                .exceptionally(ex -> {
+                    System.out.println(ex.getMessage());
+                    return null;
+                });
+        CompletableFuture<Void> future2 = CompletableFuture.runAsync(() -> bidService.addBid(dto, 2L))
+                .exceptionally(ex -> {
+                    System.out.println(ex.getMessage());
+                    return null;
+                });
+        CompletableFuture<Void> future3 = CompletableFuture.runAsync(() -> bidService.addBid(dto, 3L))
+                .exceptionally(ex -> {
+                    System.out.println(ex.getMessage());
+                    return null;
+                });
+
+        CompletableFuture.allOf(future1, future2, future3).join();
+
+        //then
+        ArgumentCaptor<AccountRequestDto> captor = ArgumentCaptor.forClass(AccountRequestDto.class);
+        verify(bidRepository, times(1)).save(any());
+        verify(accountService, times(1))
+                .withdraw(captor.capture(), anyLong(), eq(BIDDING));
+        assertThat(captor.getValue().getAmount()).isEqualTo(dto.getBidAmount());
+    } 
 
     //    @Test
 //    public void 멀티스레드_입찰_갱신_시_이전_입찰자는_입찰금을_반환_받는다() throws Exception {
