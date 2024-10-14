@@ -35,7 +35,6 @@ public class AccountController {
 
     @PostMapping("/deposit")
     public void deposit(@RequestBody AccountRequestDto dto, HttpServletRequest request) {
-        log(dto.getAmount() + "====================");
         Long userId = tokenUtils.getUserId(request);
         accountService.deposit(dto, userId, DEPOSIT);
     }

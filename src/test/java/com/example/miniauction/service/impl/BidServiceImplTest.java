@@ -122,6 +122,7 @@ class BidServiceImplTest {
 
         AuctionBidDto dto = new AuctionBidDto(1L, 1000L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+//        when(auctionRepository.findByIdWithLock(1L)).thenReturn(Optional.of(auction));
         when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
         when(bidRepository.findBidByAuctionAndUserAndStatus(any(Auction.class), any(User.class), any(BidStatus.class)))
                 .thenReturn(previousBid);
@@ -146,6 +147,7 @@ class BidServiceImplTest {
         auction.updateBidInfo(previousBidder, previousBidAmount);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+//        when(auctionRepository.findByIdWithLock(1L)).thenReturn(Optional.of(auction));
         when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
 
         AuctionBidDto dto = new AuctionBidDto(1L, 1000L);
@@ -173,6 +175,7 @@ class BidServiceImplTest {
     @Test
     public void 최고가_입찰자가_재입찰_시_예외가_발생한다() throws Exception {
         //given
+//        when(auctionRepository.findByIdWithLock(1L)).thenReturn(Optional.of(auction));
         when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(accountService.withdraw(any(AccountRequestDto.class), anyLong(), any(TransactionType.class)))
@@ -194,6 +197,7 @@ class BidServiceImplTest {
     public void 입찰_시_경매_정보가_없으면_예외가_발생한다() throws Exception {
         //given
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+//        when(auctionRepository.findByIdWithLock(1L)).thenReturn(Optional.empty());
         when(auctionRepository.findById(1L)).thenReturn(Optional.empty());
 
         AuctionBidDto dto = new AuctionBidDto(1L, 1000L);
@@ -209,6 +213,7 @@ class BidServiceImplTest {
     public void 멀티스레드_경매_입찰_성공() throws Exception {
         //given
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+//        when(auctionRepository.findByIdWithLock(1L)).thenReturn(Optional.of(auction));
         when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
         when(accountService.withdraw(any(AccountRequestDto.class), anyLong(), any(TransactionType.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
@@ -237,6 +242,7 @@ class BidServiceImplTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.findById(2L)).thenReturn(Optional.of(user2));
         when(userRepository.findById(3L)).thenReturn(Optional.of(user3));
+//        when(auctionRepository.findByIdWithLock(1L)).thenReturn(Optional.of(auction));
         when(auctionRepository.findById(1L)).thenReturn(Optional.of(auction));
         when(accountService.withdraw(any(AccountRequestDto.class), anyLong(), any(TransactionType.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
